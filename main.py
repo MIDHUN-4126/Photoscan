@@ -224,6 +224,38 @@ async def analyze_lesion_stream(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
+    import subprocess
+    import sys
+    import platform
+    
+    # Auto-kill any existing process on port 8000
+    if platform.system() == "Windows":
+        try:
+            subprocess.run(
+                f"netstat -ano | findstr :8000",
+                shell=True,
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            subprocess.run(
+                "taskkill /F /IM python.exe /FI 'WINDOWTITLE eq *PathoScan*'",
+                shell=True,
+                capture_output=True,
+                check=False
+            )
+        except:
+            pass
+    
+    print("=" * 70)
     print("Starting PathoScan API server...")
-    print("API docs: http://localhost:8000/docs")
+    print("=" * 70)
+    print("Web Interface: http://localhost:8000")
+    print("API Docs:     http://localhost:8000/docs")
+    print()
+    print("IMPORTANT: Make sure Ollama is running!")
+    print("  In another terminal, run: ollama serve")
+    print("=" * 70)
+    print()
+    
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
