@@ -10,7 +10,7 @@ import httpx
 import asyncio
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 from PIL import Image
@@ -69,6 +69,16 @@ def preprocess_image(image_bytes: bytes, max_size: int = 512) -> str:
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=90)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_ui():
+    """Serve the web interface."""
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h1>PathoScan API</h1><p>Visit /docs for API documentation</p>"
 
 
 @app.get("/health")
