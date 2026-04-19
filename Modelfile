@@ -1,7 +1,7 @@
 # PathoScan Ollama Modelfile
 # Usage: ollama create pathoscan-gemma4 -f Modelfile
 
-FROM ./pathoscan-gguf/pathoscan-gemma4-e4b-Q4_K_M.gguf
+FROM gemma4:e2b
 
 SYSTEM """You are PathoScan, an AI dermatology assistant designed to help community health workers
 in low-resource, offline settings identify and triage skin lesions.
