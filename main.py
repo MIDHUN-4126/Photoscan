@@ -140,7 +140,7 @@ async def analyze_lesion(file: UploadFile = File(...)):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{OLLAMA_URL}/api/chat",
                 json=payload
@@ -152,7 +152,7 @@ async def analyze_lesion(file: UploadFile = File(...)):
             detail="Ollama not running. Start it with: ollama serve"
         )
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Model inference timed out.")
+        raise HTTPException(status_code=504, detail="Model inference timed out. Try again.")
 
     raw = response.json()["message"]["content"].strip()
 
@@ -164,16 +164,22 @@ async def analyze_lesion(file: UploadFile = File(...)):
 
     try:
         result = json.loads(raw)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         # Fallback: try to extract JSON from response
         import re
         match = re.search(r'\{.*\}', raw, re.DOTALL)
         if match:
-            result = json.loads(match.group())
+            try:
+                result = json.loads(match.group())
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Model output is not valid JSON. Response: {raw[:100]}..."
+                )
         else:
             raise HTTPException(
                 status_code=500,
-                detail="Model returned invalid JSON. Try again."
+                detail=f"Model returned invalid response: {raw[:100]}..."
             )
 
     # Ensure all required fields are present
