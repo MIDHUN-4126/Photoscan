@@ -1,81 +1,79 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-PathoScan Live Demo - Tests the actual API
-Run this while the server is running: python main.py
+PathoScan Live API Demo - Tests the actual running API
 """
 
 import asyncio
 import httpx
-import json
 import sys
-from pathlib import Path
 
 async def main():
-    print("\n" + "="*70)
-    print("  PATHOSCAN - LIVE API DEMO")
-    print("="*70)
-    
-    # Configuration
-    API_URL = "http://localhost:8000"
-    
-    print("\n1. Testing API Health...")
-    print("-" * 70)
+    print("""
+====================================================================
+  PATHOSCAN - LIVE API DEMO
+====================================================================
+
+Make sure to run 'python main.py' in another terminal first!
+
+Connecting to API...""")
     
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{API_URL}/health")
+            response = await client.get("http://localhost:8000/health")
             
             if response.status_code == 200:
                 health = response.json()
-                print("✓ API is running!")
-                print(f"  Status: {health.get('status')}")
-                print(f"  Ollama: {health.get('ollama')}")
-                print(f"  Model Loaded: {health.get('model_loaded')}")
-                print(f"  Model Name: {health.get('model_name')}")
-                print(f"  Offline Capable: {health.get('offline_capable')}")
+                print("\nSUCCESS - API is running!\n")
+                print(f"Status: {health.get('status')}")
+                print(f"Ollama: {health.get('ollama')}")
+                print(f"Model Loaded: {health.get('model_loaded')}")
+                print(f"Model Name: {health.get('model_name')}")
+                print(f"Offline Capable: {health.get('offline_capable')}")
+                
+                print("""
+====================================================================
+
+API IS READY - Next Steps:
+
+1. Test the API with an image:
+   
+   curl -X POST http://localhost:8000/analyze \\
+        -F 'file=@your_image.jpg'
+
+2. Or use Python:
+   
+   import httpx
+   
+   with open('image.jpg', 'rb') as f:
+       response = httpx.post(
+           'http://localhost:8000/analyze',
+           files={'file': f}
+       )
+   print(response.json())
+
+3. Visit interactive docs:
+   
+   http://localhost:8000/docs
+
+====================================================================
+""")
+                return 0
             else:
-                print(f"✗ API returned error: {response.status_code}")
-                sys.exit(1)
+                print(f"\nERROR: API returned status {response.status_code}")
+                return 1
     
     except httpx.ConnectError:
-        print("✗ Cannot connect to API!")
-        print("\nMake sure to run: python main.py")
-        print("In another terminal")
-        sys.exit(1)
+        print("\nERROR: Cannot connect to API!")
+        print("\nMake sure to run:")
+        print("  1. python main.py  (in another terminal)")
+        print("  2. Ollama must be running on port 11434")
+        return 1
     
     except Exception as e:
-        print(f"✗ Error: {e}")
-        sys.exit(1)
-    
-    print("\n2. API Status")
-    print("-" * 70)
-    print("✓ Server is ready to analyze images!")
-    print("\nTo test the /analyze endpoint:")
-    print("  curl -X POST http://localhost:8000/analyze \\")
-    print("       -F 'file=@your_image.jpg'")
-    print("\nOr use Python:")
-    print("""
-  import httpx
-  
-  with open('image.jpg', 'rb') as f:
-      response = httpx.post(
-          'http://localhost:8000/analyze',
-          files={'file': f}
-      )
-  print(response.json())
-    """)
-    
-    print("\n3. API Documentation")
-    print("-" * 70)
-    print("Visit: http://localhost:8000/docs")
-    print("For interactive API testing with Swagger UI")
-    
-    print("\n" + "="*70)
-    print("  ✓ Demo Complete!")
-    print("="*70 + "\n")
+        print(f"\nERROR: {e}")
+        return 1
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n\nDemo interrupted by user")
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 PathoScan — FastAPI Backend
 Serves the fine-tuned Gemma 4 E4B model via Ollama for offline skin lesion triage.
