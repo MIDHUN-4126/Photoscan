@@ -29,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OLLAMA_URL  = "http://localhost:11434"
+OLLAMA_URL  = "http://localhost:11435"
 MODEL_NAME  = "pathoscan-gemma4"   # matches Modelfile
 
 SYSTEM_PROMPT = """You are PathoScan, an AI dermatology assistant for community health workers.
@@ -254,7 +254,8 @@ if __name__ == "__main__":
     print("API Docs:     http://localhost:8000/docs")
     print()
     print("IMPORTANT: Make sure Ollama is running!")
-    print("  In another terminal, run: ollama serve")
+    print("  In another terminal, run:")
+    print("  $env:OLLAMA_HOST='127.0.0.1:11435' ; ollama serve")
     print("=" * 70)
     print()
     
