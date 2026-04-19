@@ -1,7 +1,8 @@
 # PathoScan Ollama Modelfile
 # Usage: ollama create pathoscan-gemma4 -f Modelfile
+# Uses qwen2.5:3b - lightweight model that fits in 4GB VRAM
 
-FROM gemma4:e2b
+FROM qwen2.5:3b
 
 SYSTEM """You are PathoScan, an AI dermatology assistant designed to help community health workers
 in low-resource, offline settings identify and triage skin lesions.
