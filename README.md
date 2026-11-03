@@ -109,6 +109,20 @@ python prepare_isic2019.py `
   --output-dir data\isic2019
 ```
 
+You can download the Kaggle copy directly from Python instead. This requires
+Kaggle authentication (for example, a configured `kaggle.json` or an active
+KaggleHub login):
+
+```powershell
+python -m pip install kagglehub
+python download_kaggle_isic.py --output-dir data\isic2019 --mode hardlink
+```
+
+`KaggleDatasetAdapter.PANDAS` is useful for reading CSV metadata, but it does
+not download images for CNN training. Use `kagglehub.dataset_download` through
+`download_kaggle_isic.py` to obtain the complete dataset. The first download
+requires approximately 10 GB of free disk space.
+
 If the input and output are on the same drive, `--mode hardlink` avoids
 duplicating the image files. The resulting layout is:
 

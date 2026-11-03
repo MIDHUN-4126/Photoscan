@@ -41,18 +41,15 @@ def diagnosis(row: dict[str, str], image_id: str) -> str:
     return present[0]
 
 
-def main() -> None:
-    args = parse_args()
-    if not args.images_dir.is_dir():
-        raise FileNotFoundError(f"Image directory not found: {args.images_dir}")
-    if not args.labels.is_file():
-        raise FileNotFoundError(f"Labels CSV not found: {args.labels}")
-
+def prepare_dataset(images_dir: Path, labels: Path, output_dir: Path, mode: str) -> None:
+    if not images_dir.is_dir():
+        raise FileNotFoundError(f"Image directory not found: {images_dir}")
+    if not labels.is_file():
+        raise FileNotFoundError(f"Labels CSV not found: {labels}")
     for class_name in CLASS_NAMES:
-        (args.output_dir / class_name).mkdir(parents=True, exist_ok=True)
-
+        (output_dir / class_name).mkdir(parents=True, exist_ok=True)
     processed = missing = 0
-    with args.labels.open(newline="", encoding="utf-8-sig") as file:
+    with labels.open(newline="", encoding="utf-8-sig") as file:
         reader = csv.DictReader(file)
         required = {"image"} | set(CLASS_NAMES)
         if not required.issubset(reader.fieldnames or set()):
@@ -62,22 +59,27 @@ def main() -> None:
             )
         for row in reader:
             image_id = row["image"].strip()
-            source = args.images_dir / f"{image_id}.jpg"
+            source = images_dir / f"{image_id}.jpg"
             if not source.is_file():
                 missing += 1
                 continue
-            target = args.output_dir / diagnosis(row, image_id) / source.name
+            target = output_dir / diagnosis(row, image_id) / source.name
             if target.exists():
                 continue
-            if args.mode == "hardlink":
+            if mode == "hardlink":
                 target.hardlink_to(source)
             else:
                 shutil.copy2(source, target)
             processed += 1
 
-    print(f"Prepared {processed} images in {args.output_dir}")
+    print(f"Prepared {processed} images in {output_dir}")
     if missing:
         print(f"Skipped {missing} label rows without a matching .jpg file")
+
+
+def main() -> None:
+    args = parse_args()
+    prepare_dataset(args.images_dir, args.labels, args.output_dir, args.mode)
 
 
 if __name__ == "__main__":
