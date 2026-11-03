@@ -132,6 +132,14 @@ The API automatically uses this checkpoint when it exists. Set
 `PATHOSCAN_MODEL_BACKEND=cnn` to require the CNN, or set it to `gemma` to use
 the Ollama model explicitly. A checkpoint is intentionally not committed to Git.
 
+### Train and test directly on Kaggle
+
+Open [`02_train_cnn_kaggle.ipynb`](02_train_cnn_kaggle.ipynb) in Kaggle, attach
+the ISIC 2019 dataset, select a GPU accelerator, and run all cells. The final
+cell launches a Gradio frontend and prints a public browser URL. Download the
+generated `pathoscan_efficientnet_b0.pt` output to `models/` for local FastAPI
+inference.
+
 ### 2. Create Ollama model
 ```bash
 ollama create pathoscan-gemma4 -f Modelfile
