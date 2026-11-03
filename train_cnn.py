@@ -84,7 +84,12 @@ def main() -> None:
     val_loader = DataLoader(val_subset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     model = build_model(len(CLASS_NAMES), pretrained=True).to(device)
-    criterion = nn.CrossEntropyLoss()
+    train_labels = [base_dataset.targets[index] for index in train_indices.indices]
+    label_counts = torch.bincount(
+        torch.tensor(train_labels), minlength=len(base_dataset.classes)
+    ).float()
+    class_weights = label_counts.sum() / (len(label_counts) * label_counts.clamp_min(1))
+    criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=1e-4)
     best_accuracy = -1.0
     for epoch in range(args.epochs):

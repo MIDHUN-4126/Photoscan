@@ -92,18 +92,41 @@ wget https://huggingface.co/YOUR_USERNAME/pathoscan-gemma4-e4b/resolve/main/path
 
 ### Train the CNN classifier
 
-Install the requirements and arrange the labelled images as one folder per ISIC code:
+Install the requirements. For the best starting point, use the official
+[ISIC 2019 challenge dataset](https://challenge2019.isic-archive.com/data.html).
+It contains 25,331 dermoscopic images across eight diagnoses, including
+melanoma (MEL), basal cell carcinoma (BCC), actinic keratosis (AKIEC), and
+squamous cell carcinoma (SCC). The download requires accepting the dataset
+terms on the ISIC site.
+
+After downloading `ISIC_2019_Training_Input` and
+`ISIC_2019_Training_GroundTruth.csv`, prepare the folders automatically:
+
+```powershell
+python prepare_isic2019.py `
+  --images-dir data\ISIC_2019_Training_Input `
+  --labels data\ISIC_2019_Training_GroundTruth.csv `
+  --output-dir data\isic2019
+```
+
+If the input and output are on the same drive, `--mode hardlink` avoids
+duplicating the image files. The resulting layout is:
 
 ```text
-data/
+data/isic2019/
   MEL/  NV/  BCC/  AKIEC/  BKL/  DF/  VASC/  SCC/
 ```
 
 Then train the EfficientNet-B0 classifier:
 
 ```bash
-python train_cnn.py --data-dir data --output models/pathoscan_efficientnet_b0.pt
+python train_cnn.py --data-dir data/isic2019 --output models/pathoscan_efficientnet_b0.pt
 ```
+
+Training automatically uses CUDA when available and applies class-weighted
+loss so the less frequent cancer classes are not ignored. For a stronger
+clinical model, add more labelled data from the ISIC Archive and keep a
+patient-independent test set that is never used during training.
 
 The API automatically uses this checkpoint when it exists. Set
 `PATHOSCAN_MODEL_BACKEND=cnn` to require the CNN, or set it to `gemma` to use
