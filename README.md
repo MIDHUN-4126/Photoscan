@@ -54,7 +54,7 @@ PathoScan puts a specialist-grade dermatology AI in the hands of any health work
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Model:** Gemma 4 E4B fine-tuned with [Unsloth](https://github.com/unslothai/unsloth) LoRA adapters on ISIC 2019 (8 skin lesion classes, ~4000 training samples). Exported to GGUF Q4_K_M format — runs in 4GB VRAM.
+**Model:** The default path is a local **EfficientNet-B0 convolutional neural network** trained with transfer learning on ISIC 2019 (8 skin lesion classes). It uses ImageNet normalization and lesion-specific augmentation, and runs on CPU or CUDA. Gemma remains available as a fallback through Ollama when no CNN checkpoint is present.
 
 **Key Gemma 4 features used:**
 - Native multimodal vision understanding (image + text)
@@ -90,6 +90,25 @@ PathoScan puts a specialist-grade dermatology AI in the hands of any health work
 wget https://huggingface.co/YOUR_USERNAME/pathoscan-gemma4-e4b/resolve/main/pathoscan-gemma4-e4b-Q4_K_M.gguf
 ```
 
+### Train the CNN classifier
+
+Install the requirements and arrange the labelled images as one folder per ISIC code:
+
+```text
+data/
+  MEL/  NV/  BCC/  AKIEC/  BKL/  DF/  VASC/  SCC/
+```
+
+Then train the EfficientNet-B0 classifier:
+
+```bash
+python train_cnn.py --data-dir data --output models/pathoscan_efficientnet_b0.pt
+```
+
+The API automatically uses this checkpoint when it exists. Set
+`PATHOSCAN_MODEL_BACKEND=cnn` to require the CNN, or set it to `gemma` to use
+the Ollama model explicitly. A checkpoint is intentionally not committed to Git.
+
 ### 2. Create Ollama model
 ```bash
 ollama create pathoscan-gemma4 -f Modelfile
@@ -113,7 +132,7 @@ cd frontend && python -m http.server 3000
 
 ## Fine-tuning (Reproduce)
 
-Run [`01_finetune_kaggle.ipynb`](01_finetune_kaggle.ipynb) on Kaggle with a free T4 GPU.
+Run [`01_finetune_kaggle.ipynb`](01_finetune_kaggle.ipynb) on Kaggle with a free T4 GPU for the optional Gemma fallback.
 
 **Requirements:**
 - ISIC 2019 dataset (add from Kaggle: `andrewmvd/isic-2019`)

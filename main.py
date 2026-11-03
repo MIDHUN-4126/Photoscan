@@ -8,12 +8,13 @@ import json
 import base64
 import httpx
 import asyncio
+import os
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import io
 
 app = FastAPI(
@@ -31,6 +32,11 @@ app.add_middleware(
 
 OLLAMA_URL  = "http://localhost:11435"
 MODEL_NAME  = "pathoscan-gemma4"   # matches Modelfile
+MODEL_BACKEND = os.getenv("PATHOSCAN_MODEL_BACKEND", "auto").lower()
+CNN_MODEL_PATH = os.getenv(
+    "PATHOSCAN_CNN_MODEL", os.path.join("models", "pathoscan_efficientnet_b0.pt")
+)
+_cnn_classifier = None
 
 SYSTEM_PROMPT = """You are PathoScan, an AI dermatology assistant for community health workers.
 Analyze the skin lesion image and respond ONLY with a valid JSON object:
@@ -71,6 +77,19 @@ def preprocess_image(image_bytes: bytes, max_size: int = 512) -> str:
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
+def get_cnn_classifier():
+    """Load the CNN lazily so the API can still start without a checkpoint."""
+    global _cnn_classifier
+    if _cnn_classifier is None:
+        from classifier import SkinLesionClassifier
+        _cnn_classifier = SkinLesionClassifier(CNN_MODEL_PATH)
+    return _cnn_classifier
+
+
+def cnn_is_available() -> bool:
+    return os.path.isfile(CNN_MODEL_PATH)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui():
     """Serve the web interface."""
@@ -83,7 +102,23 @@ async def serve_ui():
 
 @app.get("/health")
 async def health_check():
-    """Check if Ollama is running and the model is loaded."""
+    """Report the selected classifier and the availability of its model."""
+    if MODEL_BACKEND == "cnn":
+        return {
+            "status": "ok" if cnn_is_available() else "error",
+            "backend": "cnn",
+            "cnn_model_loaded": cnn_is_available(),
+            "cnn_model_path": CNN_MODEL_PATH,
+            "offline_capable": True,
+        }
+    if MODEL_BACKEND == "auto" and cnn_is_available():
+        return {
+            "status": "ok",
+            "backend": "cnn",
+            "cnn_model_loaded": True,
+            "cnn_model_path": CNN_MODEL_PATH,
+            "offline_capable": True,
+        }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.get(f"{OLLAMA_URL}/api/tags")
@@ -91,6 +126,7 @@ async def health_check():
             model_ready = any(MODEL_NAME in m for m in models)
         return {
             "status": "ok",
+            "backend": "gemma",
             "ollama": "running",
             "model_loaded": model_ready,
             "model_name": MODEL_NAME,
@@ -107,7 +143,7 @@ async def analyze_lesion(file: UploadFile = File(...)):
     Runs fully offline via local Ollama instance.
     """
     # Validate file type
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image.")
 
     image_bytes = await file.read()
@@ -115,6 +151,20 @@ async def analyze_lesion(file: UploadFile = File(...)):
     # Enforce max size (10MB)
     if len(image_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image too large. Max 10MB.")
+
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except (UnidentifiedImageError, OSError):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+
+    use_cnn = MODEL_BACKEND == "cnn" or (MODEL_BACKEND == "auto" and cnn_is_available())
+    if use_cnn:
+        try:
+            return await asyncio.to_thread(get_cnn_classifier().predict, image)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=500, detail=f"CNN inference failed: {exc}") from exc
 
     image_b64 = preprocess_image(image_bytes)
 
@@ -193,10 +243,30 @@ async def analyze_lesion(file: UploadFile = File(...)):
 @app.post("/analyze/stream")
 async def analyze_lesion_stream(file: UploadFile = File(...)):
     """Streaming version — sends tokens as they're generated."""
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image.")
 
     image_bytes = await file.read()
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image too large. Max 10MB.")
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except (UnidentifiedImageError, OSError):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+
+    use_cnn = MODEL_BACKEND == "cnn" or (MODEL_BACKEND == "auto" and cnn_is_available())
+    if use_cnn:
+        try:
+            result = await asyncio.to_thread(get_cnn_classifier().predict, image)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        async def cnn_generator():
+            yield f"data: {json.dumps({'result': result})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(cnn_generator(), media_type="text/event-stream")
+
     image_b64   = preprocess_image(image_bytes)
 
     payload = {

@@ -38,6 +38,7 @@ wheels/
 
 # Ollama models
 pathoscan-gguf/
+models/*.pt
 
 # OS
 .DS_Store
